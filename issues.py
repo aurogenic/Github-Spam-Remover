@@ -6,12 +6,12 @@ import json
 GITHUB_API_URL = "https://api.github.com/graphql"
 
 
-def fetch_discussions_comments(owner, repo, headers, after_cursor=None, lastpage=''):
+def fetch_issues_comments(owner, repo, headers, after_cursor=None, lastpage=''):
 
     query = """
     query($owner: String!, $repo: String!, $first: Int, $after: String, $lastpage: String) {
       repository(owner: $owner, name: $repo) {
-        discussions(first: 1, after: $lastpage) {
+        issues(first: 1, after: $lastpage) {
           edges {
             node {
               id
@@ -79,7 +79,7 @@ def detect_spam(comment_body):
     model = joblib.load("models/spam_detector_model.pkl")
     return model.predict([comment_body])[0] == 1
 
-def moderate_discussion_comments(repo_id, from_begining=False):
+def moderate_issues_comments(repo_id, from_begining=False):
     repo_id, owner, repo, token, last_processed_cursor, a, b = fetch_repository_by_id(repo_id)
     token = '' if from_begining else token        
     headers = {
@@ -95,10 +95,10 @@ def moderate_discussion_comments(repo_id, from_begining=False):
         latest_cursor = last_processed_cursor
         comments_remaining = True
         while comments_remaining:
-            data = fetch_discussions_comments(owner, repo, headers, latest_cursor, lastpage)
+            data = fetch_issues_comments(owner, repo, headers, latest_cursor, lastpage)
             # print(json.dumps(data, indent=2))
 
-            for discussion in data['data']['repository']['discussions']['edges']:
+            for discussion in data['data']['repository']['issues']['edges']:
                 for comment_edge in discussion['node']['comments']['edges']:
                     comment_id = comment_edge['node']['id']
                     comment_body = comment_edge['node']['body']
@@ -115,12 +115,12 @@ def moderate_discussion_comments(repo_id, from_begining=False):
                 if not page_info['hasNextPage']:
                     comments_remaining = False
 
-            if not data['data']['repository']['discussions']['edges']:
+            if not data['data']['repository']['issues']['edges']:
                 break
 
-        if not data['data']['repository']['discussions']['pageInfo']['hasNextPage']:
+        if not data['data']['repository']['issues']['pageInfo']['hasNextPage']:
           break
-        lastpage = data['data']['repository']['discussions']['pageInfo']["endCursor"]
+        lastpage = data['data']['repository']['issues']['pageInfo']["endCursor"]
     
     except Exception as e:
       print("Error processing: " + str(e))
@@ -128,8 +128,7 @@ def moderate_discussion_comments(repo_id, from_begining=False):
     print("Moderation Results:")
     print(json.dumps(spam_results, indent=4))
 
-    update_discussion_cursor(repo_id, latest_cursor)
+    update_issue_cursor(repo_id, latest_cursor)
 
 if __name__ == "__main__":
-    moderate_discussion_comments(1)
-  
+    moderate_issues_comments(1)
